@@ -716,7 +716,7 @@ with st.sidebar:
 
     st.markdown("---")
     if st.session_state.agents_ready:
-        st.markdown(f'<span class="badge on">● ONLINE · {GEMINI_MODEL}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="badge on">● ONLINE · {GROQ_MODEL}</span>', unsafe_allow_html=True)
         
         # Session duration
         duration = int(time.time() - st.session_state.session_start_time)
