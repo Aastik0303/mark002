@@ -66,84 +66,55 @@ try:
 except ImportError:
     DDGS_OK = False
 
-
-# ── GOOGLE GEMINI CLIENT ──────────────────────────────────────────────────────
+# ── GROQ CLIENT ───────────────────────────────────────────────────────────────
 import streamlit as st
-import google.generativeai as genai
+from groq import Groq
+
+_groq_client = None
+GROQ_MODEL = None
 
 def set_api_key(key: str = None, model: str = None):
-    global GEMINI_MODEL, _api_key_store
+    global GROQ_MODEL, _groq_client
     
-    # 1. Fallback to Streamlit secrets if no arguments are provided
-    if not key and "GEMINI_API_KEY" in st.secrets:
-        key = st.secrets["GEMINI_API_KEY"]
+    if not key and "GROQ_API_KEY" in st.secrets:
+        key = st.secrets["GROQ_API_KEY"]
         
-    if not model and "GEMINI_MODEL" in st.secrets:
-        model = st.secrets["GEMINI_MODEL"]
+    if not model and "GROQ_MODEL" in st.secrets:
+        model = st.secrets["llama-3.3-70b-versatile"]
     
-    # 2. Validation
     if not key or not key.strip():
-        raise ValueError("GEMINI_API_KEY is not set. Please add it to your Streamlit secrets.")
+        raise ValueError("GROQ_API_KEY is not set. Please add it to your .streamlit/secrets.toml")
         
-    if not model or not model.strip():
-        # You can also set a sensible default here if you prefer
-        model = "gemini-2.5-flash" 
-        
-    # 3. Assignment
-    _api_key_store = key.strip()
-    GEMINI_MODEL = model.strip()
-    genai.configure(api_key=_api_key_store)
+    GROQ_MODEL = model.strip() if model else "llama-3.3-70b-versatile"
+    _groq_client = Groq(api_key=key.strip())
+
 def llm_call(messages: List[Dict], temperature: float = 0.1) -> str:
-    """Send messages to Gemini. Auto-retries 3x on rate limit."""
+    """Send messages to Groq. Auto-retries 3x on rate limit."""
     import time
-    if not _api_key_store:
+    if not _groq_client:
         return "Error: API key not set. Check your Streamlit secrets."
+        
     for attempt in range(3):
         try:
-            model = genai.GenerativeModel(
-                model_name=GEMINI_MODEL,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=temperature,
-                    max_output_tokens=4096,
-                )
+            # Groq natively supports standard system/user/assistant roles
+            chat_messages = [{"role": msg.get("role", "user"), "content": msg.get("content", "")} for msg in messages]
+
+            response = _groq_client.chat.completions.create(
+                messages=chat_messages,
+                model=GROQ_MODEL,
+                temperature=temperature,
+                max_tokens=4096,
             )
-            system_text   = ""
-            chat_messages = []
-
-            for msg in messages:
-                role    = msg.get("role", "user")
-                content = msg.get("content", "")
-                if role == "system":
-                    system_text = content
-                elif role == "user":
-                    chat_messages.append({"role": "user",  "parts": [content]})
-                elif role == "assistant":
-                    chat_messages.append({"role": "model", "parts": [content]})
-
-            if system_text and chat_messages:
-                for m in chat_messages:
-                    if m["role"] == "user":
-                        m["parts"][0] = system_text + "\n\n" + m["parts"][0]
-                        break
-
-            if not chat_messages:
-                return "Error: No messages to send."
-
-            history  = chat_messages[:-1]
-            last_msg = chat_messages[-1]["parts"][0]
-            chat     = model.start_chat(history=history)
-            resp     = chat.send_message(last_msg)
-            return resp.text or ""
+            return response.choices[0].message.content or ""
 
         except Exception as e:
             err = str(e)
-            if "429" in err or "quota" in err.lower() or "rate" in err.lower():
+            if "429" in err or "rate" in err.lower():
                 time.sleep((attempt + 1) * 5)
                 continue
             return f"Error: {e}"
+            
     return "Error: Rate limited. Please wait a moment and try again."
-
-
 # ── EMBEDDINGS ────────────────────────────────────────────────────────────────
 
 _embedding_model = None
