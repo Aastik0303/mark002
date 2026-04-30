@@ -460,10 +460,9 @@ pre { background: #f0f8ff !important; border: 1px solid rgba(59,130,246,0.10) !i
 def _ss(k, v):
     if k not in st.session_state:
         st.session_state[k] = v
-
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-GEMINI_MODEL   = st.secrets.get("GEMINI_MODEL",   "gemini-2.0-flash")
-
+# New Groq config
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+GROQ_MODEL   = st.secrets.get("GROQ_MODEL",   "llama-3.3-70b-versatile") # Defaulting to a strong Groq model
 _ss("agents_ready",     False)
 _ss("orchestrator",     None)
 _ss("active_agent",     "chat")
@@ -491,14 +490,14 @@ _ss("response_times",     [])
 # ══════════════════════════════════════════════════════════════════════════════
 # INIT AGENTS
 # ══════════════════════════════════════════════════════════════════════════════
+# New Groq init
 def init_agents():
-    from agents import MultiAgentOrchestrator, set_api_key
-    set_api_key(GEMINI_API_KEY, GEMINI_MODEL)
+    from agents_improved import MultiAgentOrchestrator, set_api_key
+    set_api_key(GROQ_API_KEY, GROQ_MODEL)
     if st.session_state.orchestrator is None:
         st.session_state.orchestrator = MultiAgentOrchestrator()
     st.session_state.agents_ready = True
     st.session_state._boot_error  = ""
-
 if not st.session_state.agents_ready:
     try:
         init_agents()
